@@ -1,6 +1,6 @@
 {
   "name": "use-chain-query",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Cached and bundled requests for your dapp",
   "main": "index.js",
   "repository": "https://github.com/0xPhaze/use-chain-query",

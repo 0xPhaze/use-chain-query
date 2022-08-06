@@ -1,12 +1,11 @@
 # useChainQuery
-A hook that efficiently bundles all requests to the blockchain.
-Results are cached in a store so that other components can easily access these.
+A hook that bundles all requests to the blockchain and efficiently provides cached results.
 Intentionally left to be very flexible and lenient.
 
 With useChainQuery
 - calls are aggregated for a small duration (1 second by default) and sent in one batched call
-- results are cached and re-rendering won't re-fire calls
-- any refresh can be triggered manually
+- results are cached and re-rendering components won't re-fire calls
+- any required refresh can be triggered manually
 
 ```javascript
 function Component() {
@@ -40,7 +39,7 @@ export const useChainQuery = createChainQuery(provider, contract.interface)
 While useChainQuery does not require to be used with react, its original intent is to be called as a hook. The function takes in an address
 to which the call is directed to, a name of the function to be
 called, and arguments to pass along. 
-If no arguments are needed, an empty array ([]) must be passed instead.
+If no arguments are needed, an empty array (`[]`) must be passed instead.
 Optionally, the arguments can be skipped by passing in `undefined` and
 providing a list of arguments (an array of arrays) as the last parameter.
 
@@ -109,7 +108,7 @@ function MarketItem({id}) {
 ```
 
 Internally useChainQuery stores every individual function call result in a cache and only ever re-sends a request when an explicit update is needed.
-That's why you can pass in a list of arguments (as seen with `marketItems` in the above example) and fetch the results individually in the `MarketItem` component without worrying about any additional requests being made.
+That's why it's possible to pass in a list of arguments (this equates to multiple function calls), as seen in the above example with `marketItems` and fetch the results for an individual `marketItem` in a different component without having to worry about any additional requests being made.
 
 ## Parameters
 ```javascript
@@ -166,7 +165,7 @@ function InjectProvider() {
 
 useChainQuery is a wrapper around [zustand](https://github.com/pmndrs/zustand)'s state-management
 system.
-The 
+This can be directly accessed and listeners for updates can be placed on certain keys.
 
 ```javascript
 import { buildCall } from "use-chain-query";
@@ -186,19 +185,21 @@ useChainQueryStore.getState().dispatchCalls(calls)
 // only want to listen for our "subscribed" keys
 const subscribedKeys = Object.keys(calls)
 
+const itemUpdateListener = (item) => {
+  console.log('update for item registered', item)
+}
+
 // listen to updates in cached results only for keys
 useChainQueryStore.subscribe(
-  state => subscribedKeys.map(key => state.cachedResults[key]),
-  item => {
-    console.log('update for item registered', item)
-  },
+  (state) => subscribedKeys.map((key) => state.cachedResults[key]),
+  itemUpdateListener,
   {
     equalityFn: shallow
   }
 )
 ```
 
-Alternatively calls can be queued and aggregated.
+Alternatively calls can be queued and aggregated individually.
 
 ```javascript
 useChainQueryStore.getState().queueCall(target, functionName, args)
@@ -206,4 +207,4 @@ useChainQueryStore.getState().queueCall(target, functionName, args)
 
 ## Acknowledgements
 
-- [indexed-finance](https://github.com/indexed-finance/multicall) for the trick on multicall
+- [indexed-finance](https://github.com/indexed-finance/multicall) for the return trick on multicall

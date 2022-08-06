@@ -3,16 +3,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.multiCall = exports.useChainQuery = exports.initializeChainQuery = exports.buildCall = exports.getCallKey = void 0;
+exports.multiCall = exports.useChainQuery = exports.createChainQuery = exports.buildCall = exports.getCallKey = exports.abiConcat = void 0;
 const zustand_1 = __importDefault(require("zustand"));
 const shallow_1 = __importDefault(require("zustand/shallow"));
 const middleware_1 = require("zustand/middleware");
 const ethers_1 = require("ethers");
 const Multicall_json_1 = require("./Multicall.json");
-const getCallKey = (target, func, args, chainId = 1) => target == undefined ||
-    func == undefined ||
-    args == undefined ||
-    (Array.isArray(args) && args.some((arg) => arg == undefined))
+const fragmentSignature = ({ inputs, name, type }) => name +
+    (["function", "event", "error"].includes(type) && (inputs === null || inputs === void 0 ? void 0 : inputs.length) > 0 ? `(${inputs.map(({ type }) => type)})` : "");
+const abiConcat = (arr) => Object.values(Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment }))));
+exports.abiConcat = abiConcat;
+const getCallKey = (target, func, args, chainId = 1) => target == undefined || func == undefined || args == undefined || args.some((arg) => arg == undefined)
     ? undefined
     : `${chainId}::${target}::${func}(${args})`;
 exports.getCallKey = getCallKey;
@@ -21,15 +22,13 @@ const buildCall = (target, func, args, argsList, chainId = 1) => {
         [(0, exports.getCallKey)(target, func, args, chainId)]: {
             target,
             func,
-            args: Array.isArray(args) ? args : [args],
+            args,
         },
     })));
 };
 exports.buildCall = buildCall;
-const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, queueCallDelay = 2000, verbosity = 0) => {
-    const useChainQueryStore = (0, zustand_1.default)(
-    // return create(
-    (0, middleware_1.subscribeWithSelector)((set, get) => ({
+const createChainQuery = (provider = undefined, iface = undefined, maxCallQueue = 20, queueCallDelay = 1000, verbosity = 0) => {
+    const useChainQueryStore = (0, zustand_1.default)((0, middleware_1.subscribeWithSelector)((set, get) => ({
         provider,
         iface,
         cachedResults: {},
@@ -38,23 +37,28 @@ const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, 
         failedCalls: {},
         queueTimeout: undefined,
         updateInterface(iface) {
-            if (verbosity > 0)
-                console.log("CQ: Updating interface", iface);
-            get().iface = iface;
-            get().runQueueDispatchCheck();
+            if (get().iface != iface) {
+                if (verbosity > 0)
+                    console.log("CQ: Updating interface", iface);
+                get().iface = iface;
+                get().runQueueDispatchCheck();
+            }
         },
         updateProvider(provider) {
-            if (verbosity > 0)
-                console.log("CQ: Updating provider", provider);
-            get().provider = provider;
-            get().runQueueDispatchCheck();
+            if (get().provider != provider) {
+                if (verbosity > 0)
+                    console.log("CQ: Updating provider", provider);
+                get().provider = provider;
+                get().runQueueDispatchCheck();
+            }
         },
         getQueryResult(target, func, args) {
             const key = (0, exports.getCallKey)(target, func, args);
-            if (verbosity > 1)
-                console.log("CQ: Checking cache", key);
-            if (key in get().cachedResults)
+            if (key in get().cachedResults) {
+                if (verbosity > 1)
+                    console.log("CQ: Reading cache", key);
                 return get().cachedResults[key];
+            }
             if (key !== undefined)
                 get().queueCall(target, func, args);
         },
@@ -74,19 +78,17 @@ const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, 
             }
         },
         runQueueDispatchCheck() {
-            if (verbosity > 2)
-                console.log("CQ: Running dispatch check");
-            if (get().provider !== undefined && get().iface !== undefined) {
-                const aggregatedCallsLen = Object.keys(get().queuedCalls).length;
-                // if max call queue is reached, dispatch immediately
-                if (aggregatedCallsLen >= maxCallQueue)
-                    get().dispatchQueuedCalls();
-                // else set up new dispatch to run after time delay
-                else if (aggregatedCallsLen > 0 && get().queueTimeout == undefined) {
-                    if (verbosity > 0)
-                        console.log("CQ: Setting new dispatch timeout");
-                    get().queueTimeout = setTimeout(get().dispatchQueuedCalls, queueCallDelay);
-                }
+            if (get().provider === undefined || get().iface === undefined)
+                return;
+            const aggregatedCallsLen = Object.keys(get().queuedCalls).length;
+            // if max call queue is reached, dispatch immediately
+            if (aggregatedCallsLen >= maxCallQueue)
+                get().dispatchQueuedCalls();
+            // else set up new dispatch to run after time delay
+            else if (aggregatedCallsLen > 0 && get().queueTimeout == undefined) {
+                if (verbosity > 1)
+                    console.log("CQ: Setting new dispatch timeout");
+                get().queueTimeout = setTimeout(get().dispatchQueuedCalls, queueCallDelay);
             }
         },
         dispatchQueuedCalls() {
@@ -101,9 +103,7 @@ const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, 
             get().dispatchCalls(currentCalls);
         },
         async dispatchCalls(calls) {
-            if (get().provider === undefined)
-                return;
-            if (get().iface === undefined)
+            if (get().provider === undefined || get().iface === undefined)
                 return;
             // add calls to dispatched queue
             get().dispatchedCalls = { ...get().dispatchedCalls, ...calls };
@@ -120,22 +120,20 @@ const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, 
                 };
                 throw e;
             }
+            result = Object.keys(calls).map((key, i) => ({
+                [key]: result[i],
+            }));
+            if (verbosity > 1)
+                console.log("CQ: Received", result);
             // set new results in cache
             set({
-                cachedResults: Object.assign(get().cachedResults, ...Object.keys(calls).map((key, i) => {
-                    var _a;
-                    return ({
-                        [key]: (_a = result[i]) !== null && _a !== void 0 ? _a : undefined,
-                    });
-                }) // failed call => null
-                ),
+                cachedResults: Object.assign(get().cachedResults, ...result),
             });
             // clear keys from dispatching queue
             for (let key of Object.keys(calls))
                 delete get().dispatchedCalls[key];
         },
     })));
-    // return useChainQueryStore
     function useChainQuery(target, func, args, argsList) {
         if (verbosity > 2)
             console.log("CQ: Hook call", `target: ${target}, func: ${func}, args: ${args}, argsList: ${argsList}`);
@@ -149,11 +147,11 @@ const initializeChainQuery = (provider = null, iface = null, maxCallQueue = 20, 
         ], ([a], [b]) => (0, shallow_1.default)(a, b) // this only updates `updateQuery` after a successful result
         );
     }
-    useChainQuery.store = useChainQueryStore;
+    useChainQuery.useStore = useChainQueryStore;
     return useChainQuery;
 };
-exports.initializeChainQuery = initializeChainQuery;
-exports.useChainQuery = (0, exports.initializeChainQuery)();
+exports.createChainQuery = createChainQuery;
+exports.useChainQuery = (0, exports.createChainQuery)();
 async function multiCall(provider, iface, calls) {
     const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));
     const targets = calls.map(({ target }) => target);

@@ -1,0 +1,20 @@
+{
+  "name": "example-dapp",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@web3-react/core": "8.0.23-beta.0",
+    "@web3-react/metamask": "8.0.19-beta.0",
+    "next": "^12.2.4",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "use-chain-query": "^1.0.5"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  }
+}

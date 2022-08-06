@@ -5,11 +5,17 @@ import { ethers } from "ethers";
 
 import { MulticallCode, MulticallSingleTargetCode } from "./Multicall.json";
 
+const fragmentSignature = ({ inputs, name, type }: { inputs: []; name: string; type: string }) =>
+  name +
+  (["function", "event", "error"].includes(type) && inputs?.length > 0 ? `(${inputs.map(({ type }) => type)})` : "");
+
+export const abiConcat = (arr: any) =>
+  Object.values(
+    Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment })))
+  );
+
 export const getCallKey = (target: string, func: Function, args: any[], chainId = 1): any =>
-  target == undefined ||
-  func == undefined ||
-  args == undefined ||
-  (Array.isArray(args) && args.some((arg) => arg == undefined))
+  target == undefined || func == undefined || args == undefined || args.some((arg) => arg == undefined)
     ? undefined
     : `${chainId}::${target}::${func}(${args})`;
 
@@ -20,21 +26,20 @@ export const buildCall = (target: string, func: Function, args: any[], argsList?
       [getCallKey(target, func, args, chainId)]: {
         target,
         func,
-        args: Array.isArray(args) ? args : [args],
+        args,
       },
     }))
   );
 };
 
-export const initializeChainQuery = (
-  provider = null,
-  iface = null,
+export const createChainQuery = (
+  provider = undefined,
+  iface = undefined,
   maxCallQueue = 20,
-  queueCallDelay = 2000,
+  queueCallDelay = 1000,
   verbosity = 0
 ) => {
   const useChainQueryStore = create(
-    // return create(
     subscribeWithSelector((set: Function, get: Function) => ({
       provider,
       iface,
@@ -44,20 +49,26 @@ export const initializeChainQuery = (
       failedCalls: {},
       queueTimeout: undefined,
       updateInterface(iface: ethers.utils.Interface) {
-        if (verbosity > 0) console.log("CQ: Updating interface", iface);
-        get().iface = iface;
-        get().runQueueDispatchCheck();
+        if (get().iface != iface) {
+          if (verbosity > 0) console.log("CQ: Updating interface", iface);
+          get().iface = iface;
+          get().runQueueDispatchCheck();
+        }
       },
       updateProvider(provider: ethers.providers.Provider) {
-        if (verbosity > 0) console.log("CQ: Updating provider", provider);
-        get().provider = provider;
-        get().runQueueDispatchCheck();
+        if (get().provider != provider) {
+          if (verbosity > 0) console.log("CQ: Updating provider", provider);
+          get().provider = provider;
+          get().runQueueDispatchCheck();
+        }
       },
       getQueryResult(target: string, func: Function, args: [any]) {
         const key = getCallKey(target, func, args);
 
-        if (verbosity > 1) console.log("CQ: Checking cache", key);
-        if (key in get().cachedResults) return get().cachedResults[key];
+        if (key in get().cachedResults) {
+          if (verbosity > 1) console.log("CQ: Reading cache", key);
+          return get().cachedResults[key];
+        }
         if (key !== undefined) get().queueCall(target, func, args);
       },
       queueCall(target: string, func: Function, args: [any]) {
@@ -79,18 +90,16 @@ export const initializeChainQuery = (
         }
       },
       runQueueDispatchCheck() {
-        if (verbosity > 2) console.log("CQ: Running dispatch check");
+        if (get().provider === undefined || get().iface === undefined) return;
 
-        if (get().provider !== undefined && get().iface !== undefined) {
-          const aggregatedCallsLen = Object.keys(get().queuedCalls).length;
-          // if max call queue is reached, dispatch immediately
-          if (aggregatedCallsLen >= maxCallQueue) get().dispatchQueuedCalls();
-          // else set up new dispatch to run after time delay
-          else if (aggregatedCallsLen > 0 && get().queueTimeout == undefined) {
-            if (verbosity > 0) console.log("CQ: Setting new dispatch timeout");
+        const aggregatedCallsLen = Object.keys(get().queuedCalls).length;
+        // if max call queue is reached, dispatch immediately
+        if (aggregatedCallsLen >= maxCallQueue) get().dispatchQueuedCalls();
+        // else set up new dispatch to run after time delay
+        else if (aggregatedCallsLen > 0 && get().queueTimeout == undefined) {
+          if (verbosity > 1) console.log("CQ: Setting new dispatch timeout");
 
-            get().queueTimeout = setTimeout(get().dispatchQueuedCalls, queueCallDelay);
-          }
+          get().queueTimeout = setTimeout(get().dispatchQueuedCalls, queueCallDelay);
         }
       },
       dispatchQueuedCalls() {
@@ -108,15 +117,15 @@ export const initializeChainQuery = (
         get().dispatchCalls(currentCalls);
       },
       async dispatchCalls(calls: object) {
-        if (get().provider === undefined) return;
-        if (get().iface === undefined) return;
+        if (get().provider === undefined || get().iface === undefined) return;
 
         // add calls to dispatched queue
         get().dispatchedCalls = { ...get().dispatchedCalls, ...calls };
 
         if (verbosity > 0) console.log("CQ: Dispatching", calls);
 
-        let result: [any];
+        let result: any[];
+
         try {
           result = await multiCall(get().provider, get().iface, Object.values(calls));
         } catch (e) {
@@ -127,14 +136,15 @@ export const initializeChainQuery = (
           throw e;
         }
 
+        result = Object.keys(calls).map((key, i) => ({
+          [key]: result[i],
+        }));
+
+        if (verbosity > 1) console.log("CQ: Received", result);
+
         // set new results in cache
         set({
-          cachedResults: Object.assign(
-            get().cachedResults,
-            ...Object.keys(calls).map((key, i) => ({
-              [key]: result[i] ?? undefined,
-            })) // failed call => null
-          ),
+          cachedResults: Object.assign(get().cachedResults, ...result),
         });
 
         // clear keys from dispatching queue
@@ -142,8 +152,6 @@ export const initializeChainQuery = (
       },
     }))
   );
-
-  // return useChainQueryStore
 
   function useChainQuery(target: string, func: Function, args: any[], argsList: any[][]) {
     if (verbosity > 2)
@@ -163,12 +171,12 @@ export const initializeChainQuery = (
     );
   }
 
-  useChainQuery.store = useChainQueryStore;
+  useChainQuery.useStore = useChainQueryStore;
 
   return useChainQuery;
 };
 
-export const useChainQuery = initializeChainQuery();
+export const useChainQuery = createChainQuery();
 
 export async function multiCall(provider: ethers.providers.Provider, iface: ethers.utils.Interface, calls: any[]) {
   const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));

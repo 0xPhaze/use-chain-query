@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.multiCall = exports.useChainQuery = exports.createChainQuery = exports.buildCall = exports.getCallKey = exports.abiConcat = void 0;
+exports.multiCall = exports.createChainQuery = exports.buildCall = exports.getCallKey = exports.abiConcat = void 0;
 const zustand_1 = __importDefault(require("zustand"));
 const shallow_1 = __importDefault(require("zustand/shallow"));
 const middleware_1 = require("zustand/middleware");
@@ -13,7 +13,7 @@ const fragmentSignature = ({ inputs, name, type }) => name +
     (["function", "event", "error"].includes(type) && (inputs === null || inputs === void 0 ? void 0 : inputs.length) > 0 ? `(${inputs.map(({ type }) => type)})` : "");
 const abiConcat = (arr) => Object.values(Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment }))));
 exports.abiConcat = abiConcat;
-const getCallKey = (target, func, args, chainId = 1) => target == undefined || func == undefined || args == undefined || args.some((arg) => arg == undefined)
+const getCallKey = (target, func, args = [], chainId = 1) => target == undefined || func == undefined || args.some((arg) => arg == undefined)
     ? undefined
     : `${chainId}::${target}::${func}(${args})`;
 exports.getCallKey = getCallKey;
@@ -27,10 +27,10 @@ const buildCall = (target, func, args, argsList, chainId = 1) => {
     })));
 };
 exports.buildCall = buildCall;
-const createChainQuery = (provider = undefined, iface = undefined, maxCallQueue = 20, queueCallDelay = 1000, verbosity = 0) => {
+const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1000, strict = false, verbosity = 0) => {
     const useChainQueryStore = (0, zustand_1.default)((0, middleware_1.subscribeWithSelector)((set, get) => ({
-        provider,
         iface,
+        provider,
         cachedResults: {},
         queuedCalls: {},
         dispatchedCalls: {},
@@ -111,7 +111,7 @@ const createChainQuery = (provider = undefined, iface = undefined, maxCallQueue 
                 console.log("CQ: Dispatching", calls);
             let result;
             try {
-                result = await multiCall(get().provider, get().iface, Object.values(calls));
+                result = await multiCall(get().provider, get().iface, Object.values(calls), strict);
             }
             catch (e) {
                 get().failedCalls = {
@@ -151,8 +151,7 @@ const createChainQuery = (provider = undefined, iface = undefined, maxCallQueue 
     return useChainQuery;
 };
 exports.createChainQuery = createChainQuery;
-exports.useChainQuery = (0, exports.createChainQuery)();
-async function multiCall(provider, iface, calls) {
+async function multiCall(provider, iface, calls, strict) {
     const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));
     const targets = calls.map(({ target }) => target);
     const singleTarget = targets.every((target) => target == targets[0]);
@@ -164,6 +163,8 @@ async function multiCall(provider, iface, calls) {
     const encodedReturnData = await provider.call({ data: encodedData });
     const [returnData] = ethers_1.ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
     const results = returnData.map((data, i) => {
+        if (!strict && data === "0x")
+            return undefined;
         const result = iface.decodeFunctionResult(calls[i].func, data);
         return Array.isArray(result) && result.length == 1 ? result[0] : result;
     });

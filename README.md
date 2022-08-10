@@ -9,8 +9,8 @@ With useChainQuery
 
 ```javascript
 function Component() {
-  const [name, updateName] = useChainQuery(erc20Address, 'name', [])
-  const [symbol, updateSymbol] = useChainQuery(erc20Address, 'symbol', [])
+  const [name, updateName] = useChainQuery(erc20Address, 'name')
+  const [symbol, updateSymbol] = useChainQuery(erc20Address, 'symbol')
 
   return <p>name: {name?.toString()}</p>
 }
@@ -31,17 +31,14 @@ import { abi, contractAddress } from '.'
 const provider = ethers.getDefaultProvider('mainnet')
 const contract = new ethers.Contract(contractAddress, abi)
 
-export const useChainQuery = createChainQuery(provider, contract.interface)
+export const useChainQuery = createChainQuery(contract.interface, provider)
 ```
 
 ## Usage with React
 
 While useChainQuery does not require to be used with react, its original intent is to be called as a hook. The function takes in an address
 to which the call is directed to, a name of the function to be
-called, and arguments to pass along. 
-If no arguments are needed, an empty array (`[]`) must be passed instead.
-Optionally, the arguments can be skipped by passing in `undefined` and
-providing a list of arguments (an array of arrays) as the last parameter.
+called, and arguments (in an array) to pass along. 
 
 ```javascript
 function Component() {
@@ -68,15 +65,15 @@ function Component() {
 }
 ```
 
-Using useChainQuery like this will immediately update the result with new ids as soon as `account` changes.
+Using useChainQuery as seen above will immediately update the result with new ids as soon as `account` changes.
 
-An empty array `[]` is set as the default return parameter as `result` will be undefined when it has not been returned yet.
-`update` will place the call in the call-queue again and refresh the result.
+An empty array `[]` is set as the default return parameter for `ids` as `result` will be undefined when it has not been returned yet.
+`updateIds` will place the call in the call-queue again and refresh the result.
 
 ## Flexible Nested Component Calls
 
 useChainQuery doesn't mind if arguments are undefined or change.
-Once all elements of the arguments array are well-defined, a request will
+As soon as all elements of the arguments array are well-defined, a request will
 be sent and the response will trigger a state-update.
 
 ```javascript
@@ -108,15 +105,16 @@ function MarketItem({id}) {
 ```
 
 Internally useChainQuery stores every individual function call result in a cache and only ever re-sends a request when an explicit update is needed.
-That's why it's possible to pass in a list of arguments (this equates to multiple function calls), as seen in the above example with `marketItems` and fetch the results for an individual `marketItem` in a different component without having to worry about any additional requests being made.
+That's why it's possible to pass in a list of arguments (this equates to multiple function calls), as in the above example with `marketItems` and fetch the results for an individual `marketItem` in a different component without having to worry about any additional requests being made.
 
 ## Parameters
 ```javascript
 createChainQuery(
-    provider, // ethersjs-provider
     interface, // ethersjs-interface
+    provider, // ethersjs-provider
     maxCallQueue, // maximum number of calls in call queue
-    callDelay // delay for batching calls
+    callDelay, // delay for batching calls
+    strict // if set to `true` ethers will throw when receiving incorrect data
 );
 ```
 
@@ -128,7 +126,7 @@ Currently, useChainQuery requires one complete interface to be passed for initia
 import { abiConcat } from "use-chain-query";
 
 const combinedInterface = new ethers.utils.Interface(abiConcat([ERC20ABI, ERC721ABI]));
-const useChainQuery = createChainQuery(provider, combinedInterface);
+const useChainQuery = createChainQuery(combinedInterface, provider);
 ```
 
 ## Usage with Web3-React
@@ -142,8 +140,11 @@ Alternatively, `window.ethereum` could also be used.
 import { initializeConnector } from "@web3-react/core";
 import { MetaMask } from "@web3-react/metamask";
 
-const allowedChainIds = [1]
-const [metamask, { useProvider, useAccount }] = initializeConnector((actions) => new MetaMask(actions, false), allowedChainIds);
+const allowedChainIds = [1];
+const [metamask, { useProvider, useAccount }] = initializeConnector(
+  (actions) => new MetaMask(actions, false),
+  allowedChainIds
+);
 
 function InjectProvider() {
   const provider = useProvider();
@@ -153,7 +154,6 @@ function InjectProvider() {
   }, []);
 
   useEffect(() => {
-    // const provider = new ethers.providers.Web3Provider(window.ethereum);
     useChainQuery.useStore.getState().updateProvider(provider);
   }, [provider]);
 
@@ -208,3 +208,4 @@ useChainQueryStore.getState().queueCall(target, functionName, args)
 ## Acknowledgements
 
 - [indexed-finance](https://github.com/indexed-finance/multicall) for the return trick on multicall
+- [Solady](https://github.com/Vectorized/solady/blob/main/src/utils/Multicallable.sol) for an optimized multicall implementation

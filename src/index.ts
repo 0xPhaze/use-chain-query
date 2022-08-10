@@ -14,8 +14,8 @@ export const abiConcat = (arr: any) =>
     Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment })))
   );
 
-export const getCallKey = (target: string, func: Function, args: any[], chainId = 1): any =>
-  target == undefined || func == undefined || args == undefined || args.some((arg) => arg == undefined)
+export const getCallKey = (target: string, func: Function, args: any[] = [], chainId = 1): any =>
+  target == undefined || func == undefined || args.some((arg) => arg == undefined)
     ? undefined
     : `${chainId}::${target}::${func}(${args})`;
 
@@ -33,16 +33,17 @@ export const buildCall = (target: string, func: Function, args: any[], argsList?
 };
 
 export const createChainQuery = (
-  provider = undefined,
-  iface = undefined,
+  iface: ethers.utils.Interface,
+  provider: ethers.providers.Provider,
   maxCallQueue = 20,
   queueCallDelay = 1000,
+  strict = false,
   verbosity = 0
 ) => {
   const useChainQueryStore = create(
     subscribeWithSelector((set: Function, get: Function) => ({
-      provider,
       iface,
+      provider,
       cachedResults: {},
       queuedCalls: {},
       dispatchedCalls: {},
@@ -127,7 +128,7 @@ export const createChainQuery = (
         let result: any[];
 
         try {
-          result = await multiCall(get().provider, get().iface, Object.values(calls));
+          result = await multiCall(get().provider, get().iface, Object.values(calls), strict);
         } catch (e) {
           get().failedCalls = {
             ...get().failedCalls,
@@ -176,9 +177,12 @@ export const createChainQuery = (
   return useChainQuery;
 };
 
-export const useChainQuery = createChainQuery();
-
-export async function multiCall(provider: ethers.providers.Provider, iface: ethers.utils.Interface, calls: any[]) {
+export async function multiCall(
+  provider: ethers.providers.Provider,
+  iface: ethers.utils.Interface,
+  calls: any[],
+  strict: boolean
+) {
   const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));
   const targets = calls.map(({ target }) => target);
 
@@ -191,6 +195,7 @@ export async function multiCall(provider: ethers.providers.Provider, iface: ethe
   const encodedReturnData = await provider.call({ data: encodedData });
   const [returnData] = ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
   const results = returnData.map((data: string, i: number) => {
+    if (!strict && data === "0x") return undefined;
     const result = iface.decodeFunctionResult(calls[i].func, data);
     return Array.isArray(result) && result.length == 1 ? result[0] : result;
   });

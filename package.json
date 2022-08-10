@@ -1,6 +1,6 @@
 {
   "name": "use-chain-query",
-  "version": "1.0.6",
+  "version": "1.0.9",
   "description": "Cached and bundled requests for your dapp",
   "main": "./dist/index.js",
   "repository": "github:0xPhaze/use-chain-query",
@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "ethers": "^5.6.9",
-    "zustand": "^4.0.0"
+    "zustand": "^4.0.0-rc.0"
   },
   "peerDependencies": {
-    "react": "^16.8.0"
+    "react": ">=16.8"
   }
 }

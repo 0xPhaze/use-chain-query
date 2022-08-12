@@ -14,12 +14,17 @@ export const abiConcat = (arr: any) =>
     Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment })))
   );
 
-export const getCallKey = (target: string, func: Function, args: any[] = [], chainId = 1): any =>
-  target == undefined || func == undefined || args.some((arg) => arg == undefined)
-    ? undefined
-    : `${chainId}::${target}::${func}(${args})`;
+// const hasArgs = (func: string) =>
 
-export const buildCall = (target: string, func: Function, args: any[], argsList?: any[][], chainId = 1) => {
+export const getCallKey = (target: string, func: string, args: any[] = [], chainId = 1): any =>
+  target == undefined ||
+  func == undefined ||
+  args.some((arg) => arg == undefined) ||
+  (func?.split("(")[1]?.split(")")[0]?.length && args.length == 0)
+    ? undefined
+    : `${chainId}::${target}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
+
+export const buildCall = (target: string, func: string, args: any[], argsList?: any[][], chainId = 1) => {
   return Object.assign(
     {},
     ...(argsList || [args]).map((args) => ({
@@ -37,7 +42,7 @@ export const createChainQuery = (
   provider: ethers.providers.Provider,
   maxCallQueue = 20,
   queueCallDelay = 1000,
-  strict = false,
+  strict = true,
   verbosity = 0
 ) => {
   const useChainQueryStore = create(
@@ -63,16 +68,20 @@ export const createChainQuery = (
           get().runQueueDispatchCheck();
         }
       },
-      getQueryResult(target: string, func: Function, args: [any]) {
+      getQueryResult(target: string, func: string, args: any[]): any {
         const key = getCallKey(target, func, args);
 
-        if (key in get().cachedResults) {
+        const val = get().cachedResults[key];
+
+        if (key in get().cachedResults && val != undefined) {
+          // `val` will only be undefined when `key` is also in `cachedResults`
+          // when using strict == false and returning an invalid encoded result
           if (verbosity > 1) console.log("CQ: Reading cache", key);
           return get().cachedResults[key];
         }
         if (key !== undefined) get().queueCall(target, func, args);
       },
-      queueCall(target: string, func: Function, args: [any]) {
+      queueCall(target: string, func: string, args: any[]) {
         const key = getCallKey(target, func, args);
 
         if (
@@ -154,7 +163,7 @@ export const createChainQuery = (
     }))
   );
 
-  function useChainQuery(target: string, func: Function, args: any[], argsList: any[][]) {
+  function useChainQuery(target: string, func: string, args: any[], argsList: any[][]) {
     if (verbosity > 2)
       console.log("CQ: Hook call", `target: ${target}, func: ${func}, args: ${args}, argsList: ${argsList}`);
 
@@ -190,9 +199,16 @@ export async function multiCall(
   const constructorArgs = singleTarget
     ? ethers.utils.defaultAbiCoder.encode(["address", "bytes[]"], [targets[0], callData])
     : ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]"], [targets, callData]);
+
   const code = singleTarget ? MulticallSingleTargetCode : MulticallCode;
   const encodedData = code.concat(constructorArgs.slice(2));
-  const encodedReturnData = await provider.call({ data: encodedData });
+  let encodedReturnData: any;
+  try {
+    encodedReturnData = await provider.call({ data: encodedData });
+  } catch (e) {
+    console.log("CQ: ERROR: Multicall reverted on calls", calls);
+    throw e;
+  }
   const [returnData] = ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
   const results = returnData.map((data: string, i: number) => {
     if (!strict && data === "0x") return undefined;

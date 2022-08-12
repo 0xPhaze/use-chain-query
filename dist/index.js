@@ -13,9 +13,16 @@ const fragmentSignature = ({ inputs, name, type }) => name +
     (["function", "event", "error"].includes(type) && (inputs === null || inputs === void 0 ? void 0 : inputs.length) > 0 ? `(${inputs.map(({ type }) => type)})` : "");
 const abiConcat = (arr) => Object.values(Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment }))));
 exports.abiConcat = abiConcat;
-const getCallKey = (target, func, args = [], chainId = 1) => target == undefined || func == undefined || args.some((arg) => arg == undefined)
-    ? undefined
-    : `${chainId}::${target}::${func}(${args})`;
+// const hasArgs = (func: string) =>
+const getCallKey = (target, func, args = [], chainId = 1) => {
+    var _a, _b;
+    return target == undefined ||
+        func == undefined ||
+        args.some((arg) => arg == undefined) ||
+        (((_b = (_a = func === null || func === void 0 ? void 0 : func.split("(")[1]) === null || _a === void 0 ? void 0 : _a.split(")")[0]) === null || _b === void 0 ? void 0 : _b.length) && args.length == 0)
+        ? undefined
+        : `${chainId}::${target}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
+};
 exports.getCallKey = getCallKey;
 const buildCall = (target, func, args, argsList, chainId = 1) => {
     return Object.assign({}, ...(argsList || [args]).map((args) => ({
@@ -27,7 +34,7 @@ const buildCall = (target, func, args, argsList, chainId = 1) => {
     })));
 };
 exports.buildCall = buildCall;
-const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1000, strict = false, verbosity = 0) => {
+const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1000, strict = true, verbosity = 0) => {
     const useChainQueryStore = (0, zustand_1.default)((0, middleware_1.subscribeWithSelector)((set, get) => ({
         iface,
         provider,
@@ -54,7 +61,10 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
         },
         getQueryResult(target, func, args) {
             const key = (0, exports.getCallKey)(target, func, args);
-            if (key in get().cachedResults) {
+            const val = get().cachedResults[key];
+            if (key in get().cachedResults && val != undefined) {
+                // `val` will only be undefined when `key` is also in `cachedResults`
+                // when using strict == false and returning an invalid encoded result
                 if (verbosity > 1)
                     console.log("CQ: Reading cache", key);
                 return get().cachedResults[key];
@@ -160,7 +170,14 @@ async function multiCall(provider, iface, calls, strict) {
         : ethers_1.ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]"], [targets, callData]);
     const code = singleTarget ? Multicall_json_1.MulticallSingleTargetCode : Multicall_json_1.MulticallCode;
     const encodedData = code.concat(constructorArgs.slice(2));
-    const encodedReturnData = await provider.call({ data: encodedData });
+    let encodedReturnData;
+    try {
+        encodedReturnData = await provider.call({ data: encodedData });
+    }
+    catch (e) {
+        console.log("CQ: ERROR: Multicall reverted on calls", calls);
+        throw e;
+    }
     const [returnData] = ethers_1.ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
     const results = returnData.map((data, i) => {
         if (!strict && data === "0x")

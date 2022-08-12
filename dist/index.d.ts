@@ -1,9 +1,9 @@
 import { ethers } from "ethers";
 export declare const abiConcat: (arr: any) => unknown[];
-export declare const getCallKey: (target: string, func: Function, args?: any[], chainId?: number) => any;
-export declare const buildCall: (target: string, func: Function, args: any[], argsList?: any[][], chainId?: number) => any;
+export declare const getCallKey: (target: string, func: string, args?: any[], chainId?: number) => any;
+export declare const buildCall: (target: string, func: string, args: any[], argsList?: any[][], chainId?: number) => any;
 export declare const createChainQuery: (iface: ethers.utils.Interface, provider: ethers.providers.Provider, maxCallQueue?: number, queueCallDelay?: number, strict?: boolean, verbosity?: number) => {
-    (target: string, func: Function, args: any[], argsList: any[][]): [any];
+    (target: string, func: string, args: any[], argsList: any[][]): [any];
     useStore: import("zustand").UseBoundStore<Omit<import("zustand").StoreApi<{
         iface: ethers.utils.Interface;
         provider: ethers.providers.Provider;
@@ -14,8 +14,8 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
         queueTimeout: undefined;
         updateInterface(iface: ethers.utils.Interface): void;
         updateProvider(provider: ethers.providers.Provider): void;
-        getQueryResult(target: string, func: Function, args: [any]): any;
-        queueCall(target: string, func: Function, args: [any]): void;
+        getQueryResult(target: string, func: string, args: any[]): any;
+        queueCall(target: string, func: string, args: any[]): void;
         runQueueDispatchCheck(): void;
         dispatchQueuedCalls(): void;
         dispatchCalls(calls: object): Promise<void>;
@@ -31,8 +31,8 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
-                getQueryResult(target: string, func: Function, args: [any]): any;
-                queueCall(target: string, func: Function, args: [any]): void;
+                getQueryResult(target: string, func: string, args: any[]): any;
+                queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;
                 dispatchQueuedCalls(): void;
                 dispatchCalls(calls: object): Promise<void>;
@@ -46,8 +46,8 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
-                getQueryResult(target: string, func: Function, args: [any]): any;
-                queueCall(target: string, func: Function, args: [any]): void;
+                getQueryResult(target: string, func: string, args: any[]): any;
+                queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;
                 dispatchQueuedCalls(): void;
                 dispatchCalls(calls: object): Promise<void>;
@@ -62,8 +62,8 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
-                getQueryResult(target: string, func: Function, args: [any]): any;
-                queueCall(target: string, func: Function, args: [any]): void;
+                getQueryResult(target: string, func: string, args: any[]): any;
+                queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;
                 dispatchQueuedCalls(): void;
                 dispatchCalls(calls: object): Promise<void>;

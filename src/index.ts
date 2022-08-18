@@ -212,8 +212,12 @@ export async function multiCall(
   const [returnData] = ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
   const results = returnData.map((data: string, i: number) => {
     if (!strict && data === "0x") return undefined;
-    const result = iface.decodeFunctionResult(calls[i].func, data);
-    return Array.isArray(result) && result.length == 1 ? result[0] : result;
+    try {
+      const result = iface.decodeFunctionResult(calls[i].func, data);
+      return Array.isArray(result) && result.length == 1 ? result[0] : result;
+    } catch (e) {
+      console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+    }
   });
   return results;
 }

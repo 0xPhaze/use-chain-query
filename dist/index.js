@@ -182,8 +182,13 @@ async function multiCall(provider, iface, calls, strict) {
     const results = returnData.map((data, i) => {
         if (!strict && data === "0x")
             return undefined;
-        const result = iface.decodeFunctionResult(calls[i].func, data);
-        return Array.isArray(result) && result.length == 1 ? result[0] : result;
+        try {
+            const result = iface.decodeFunctionResult(calls[i].func, data);
+            return Array.isArray(result) && result.length == 1 ? result[0] : result;
+        }
+        catch (e) {
+            console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+        }
     });
     return results;
 }

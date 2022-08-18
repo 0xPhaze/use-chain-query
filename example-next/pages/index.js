@@ -13,7 +13,7 @@ const useChainQuery = createChainQuery(contract.interface, provider, 10, 1000, f
 const account = "0x74De159B3a9372b7e85Fd00569a0929265b630eF";
 
 export default function Home() {
-  const [name] = useChainQuery(contractAddress, "name()");
+  const [name] = useChainQuery(contractAddress, "name");
   const [symbol] = useChainQuery(contractAddress, "symbol");
   const [balance = ethers.constants.Zero, updateBalance] = useChainQuery(contractAddress, "balanceOf", [account]);
 

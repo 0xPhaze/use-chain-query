@@ -217,6 +217,7 @@ export async function multiCall(
       return Array.isArray(result) && result.length == 1 ? result[0] : result;
     } catch (e) {
       console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+      throw e;
     }
   });
   return results;

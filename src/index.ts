@@ -14,8 +14,6 @@ export const abiConcat = (arr: any) =>
     Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment })))
   );
 
-// const hasArgs = (func: string) =>
-
 export const getCallKey = (target: string, func: string, args: any[] = [], chainId = 1): any =>
   target == undefined ||
   func == undefined ||
@@ -53,6 +51,7 @@ export const createChainQuery = (
       queuedCalls: {},
       dispatchedCalls: {},
       failedCalls: {},
+      lastUpdateTime: {},
       queueTimeout: undefined,
       updateInterface(iface: ethers.utils.Interface) {
         if (get().iface != iface) {
@@ -152,9 +151,15 @@ export const createChainQuery = (
 
         if (verbosity > 1) console.log("CQ: Received", result);
 
+        const now = new Date().getTime();
+        const newUpdateTime = Object.keys(calls).map((key) => ({
+          [key]: now,
+        }));
+
         // set new results in cache
         set({
           cachedResults: Object.assign(get().cachedResults, ...result),
+          lastUpdateTime: Object.assign(get().lastUpdateTime, ...newUpdateTime),
         });
 
         // clear keys from dispatching queue
@@ -176,6 +181,7 @@ export const createChainQuery = (
           argsList !== undefined
             ? () => argsList.map((args) => queueCall(target, func, args))
             : () => queueCall(target, func, args),
+          buildCall(target, func, args, argsList),
         ] as any,
       ([a]: [any], [b]: [any]) => shallow(a, b) // this only updates `updateQuery` after a successful result
     );
@@ -192,7 +198,15 @@ export async function multiCall(
   calls: any[],
   strict: boolean
 ) {
-  const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));
+  const callData = calls.map(({ func, args }) => {
+    try {
+      return iface.encodeFunctionData(func, args);
+    } catch (e) {
+      console.log("CQ: ERROR: Failed encoding function call", func, "with args", args);
+      throw e;
+    }
+  });
+
   const targets = calls.map(({ target }) => target);
 
   const singleTarget = targets.every((target) => target == targets[0]);

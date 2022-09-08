@@ -11,6 +11,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
         queuedCalls: {};
         dispatchedCalls: {};
         failedCalls: {};
+        lastUpdateTime: {};
         queueTimeout: undefined;
         updateInterface(iface: ethers.utils.Interface): void;
         updateProvider(provider: ethers.providers.Provider): void;
@@ -28,6 +29,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queuedCalls: {};
                 dispatchedCalls: {};
                 failedCalls: {};
+                lastUpdateTime: {};
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
@@ -43,6 +45,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queuedCalls: {};
                 dispatchedCalls: {};
                 failedCalls: {};
+                lastUpdateTime: {};
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
@@ -59,6 +62,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queuedCalls: {};
                 dispatchedCalls: {};
                 failedCalls: {};
+                lastUpdateTime: {};
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;

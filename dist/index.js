@@ -13,7 +13,6 @@ const fragmentSignature = ({ inputs, name, type }) => name +
     (["function", "event", "error"].includes(type) && (inputs === null || inputs === void 0 ? void 0 : inputs.length) > 0 ? `(${inputs.map(({ type }) => type)})` : "");
 const abiConcat = (arr) => Object.values(Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment }))));
 exports.abiConcat = abiConcat;
-// const hasArgs = (func: string) =>
 const getCallKey = (target, func, args = [], chainId = 1) => {
     var _a, _b;
     return target == undefined ||
@@ -42,6 +41,7 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
         queuedCalls: {},
         dispatchedCalls: {},
         failedCalls: {},
+        lastUpdateTime: {},
         queueTimeout: undefined,
         updateInterface(iface) {
             if (get().iface != iface) {
@@ -135,9 +135,14 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
             }));
             if (verbosity > 1)
                 console.log("CQ: Received", result);
+            const now = new Date().getTime();
+            const newUpdateTime = Object.keys(calls).map((key) => ({
+                [key]: now,
+            }));
             // set new results in cache
             set({
                 cachedResults: Object.assign(get().cachedResults, ...result),
+                lastUpdateTime: Object.assign(get().lastUpdateTime, ...newUpdateTime),
             });
             // clear keys from dispatching queue
             for (let key of Object.keys(calls))
@@ -154,6 +159,7 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
             argsList !== undefined
                 ? () => argsList.map((args) => queueCall(target, func, args))
                 : () => queueCall(target, func, args),
+            (0, exports.buildCall)(target, func, args, argsList),
         ], ([a], [b]) => (0, shallow_1.default)(a, b) // this only updates `updateQuery` after a successful result
         );
     }
@@ -162,7 +168,15 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
 };
 exports.createChainQuery = createChainQuery;
 async function multiCall(provider, iface, calls, strict) {
-    const callData = calls.map(({ func, args }) => iface.encodeFunctionData(func, args));
+    const callData = calls.map(({ func, args }) => {
+        try {
+            return iface.encodeFunctionData(func, args);
+        }
+        catch (e) {
+            console.log("CQ: ERROR: Failed encoding function call", func, "with args", args);
+            throw e;
+        }
+    });
     const targets = calls.map(({ target }) => target);
     const singleTarget = targets.every((target) => target == targets[0]);
     const constructorArgs = singleTarget
@@ -188,6 +202,7 @@ async function multiCall(provider, iface, calls, strict) {
         }
         catch (e) {
             console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+            throw e;
         }
     });
     return results;

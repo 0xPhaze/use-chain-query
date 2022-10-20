@@ -3,7 +3,7 @@ import shallow from "zustand/shallow";
 import { subscribeWithSelector } from "zustand/middleware";
 import { ethers } from "ethers";
 
-import { MulticallCode, MulticallSingleTargetCode } from "./Multicall.json";
+import { MulticallBytecode, MulticallSingleTargetBytecode } from "./Multicall.json";
 
 const fragmentSignature = ({ inputs, name, type }: { inputs: []; name: string; type: string }) =>
   name +
@@ -220,7 +220,7 @@ export async function multiCall(
     ? ethers.utils.defaultAbiCoder.encode(["address", "bytes[]"], [targets[0], callData])
     : ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]"], [targets, callData]);
 
-  const code = singleTarget ? MulticallSingleTargetCode : MulticallCode;
+  const code = singleTarget ? MulticallSingleTargetBytecode : MulticallBytecode;
   const encodedData = code.concat(constructorArgs.slice(2));
   let encodedReturnData: any;
   try {

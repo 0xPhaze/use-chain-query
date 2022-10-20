@@ -216,12 +216,15 @@ export async function multiCall(
   const targets = calls.map(({ target }) => target);
 
   const singleTarget = targets.every((target) => target == targets[0]);
-  const constructorArgs = singleTarget
-    ? ethers.utils.defaultAbiCoder.encode(["address", "bytes[]"], [targets[0], callData])
-    : ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]"], [targets, callData]);
+  // const singleTarget = false;
 
   const code = singleTarget ? MulticallSingleTargetBytecode : MulticallBytecode;
+  const constructorArgs = singleTarget
+    ? ethers.utils.defaultAbiCoder.encode(["address", "bytes[]", "bool"], [targets[0], callData, strict])
+    : ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]", "bool"], [targets, callData, strict]);
+
   const encodedData = code.concat(constructorArgs.slice(2));
+
   let encodedReturnData: any;
   try {
     encodedReturnData = await provider.call({ data: encodedData });

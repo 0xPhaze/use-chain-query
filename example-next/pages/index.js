@@ -9,7 +9,7 @@ const contractAddress = "0x3ad30c5e3496be07968579169a96f00d56de4c1a";
 const provider = ethers.getDefaultProvider("mainnet");
 const contract = new ethers.Contract(contractAddress, ERC20ABI);
 
-const useChainQuery = createChainQuery(contract.interface, provider, 10, 1000, false, 2);
+const useChainQuery = createChainQuery(contract.interface, provider, 10, 1000, true, 2);
 const account = "0x74De159B3a9372b7e85Fd00569a0929265b630eF";
 
 export default function Home() {

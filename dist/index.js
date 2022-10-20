@@ -186,10 +186,11 @@ async function multiCall(provider, iface, calls, strict) {
     });
     const targets = calls.map(({ target }) => target);
     const singleTarget = targets.every((target) => target == targets[0]);
-    const constructorArgs = singleTarget
-        ? ethers_1.ethers.utils.defaultAbiCoder.encode(["address", "bytes[]"], [targets[0], callData])
-        : ethers_1.ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]"], [targets, callData]);
+    // const singleTarget = false;
     const code = singleTarget ? Multicall_json_1.MulticallSingleTargetBytecode : Multicall_json_1.MulticallBytecode;
+    const constructorArgs = singleTarget
+        ? ethers_1.ethers.utils.defaultAbiCoder.encode(["address", "bytes[]", "bool"], [targets[0], callData, strict])
+        : ethers_1.ethers.utils.defaultAbiCoder.encode(["address[]", "bytes[]", "bool"], [targets, callData, strict]);
     const encodedData = code.concat(constructorArgs.slice(2));
     let encodedReturnData;
     try {

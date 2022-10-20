@@ -7,6 +7,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
     useStore: import("zustand").UseBoundStore<Omit<import("zustand").StoreApi<{
         iface: ethers.utils.Interface;
         provider: ethers.providers.Provider;
+        chainId: undefined;
         cachedResults: {};
         queuedCalls: {};
         dispatchedCalls: {};
@@ -15,6 +16,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
         queueTimeout: undefined;
         updateInterface(iface: ethers.utils.Interface): void;
         updateProvider(provider: ethers.providers.Provider): void;
+        updateChainId(chainId: number): void;
         getQueryResult(target: string, func: string, args: any[]): any;
         queueCall(target: string, func: string, args: any[]): void;
         runQueueDispatchCheck(): void;
@@ -25,6 +27,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
             (listener: (selectedState: {
                 iface: ethers.utils.Interface;
                 provider: ethers.providers.Provider;
+                chainId: undefined;
                 cachedResults: {};
                 queuedCalls: {};
                 dispatchedCalls: {};
@@ -33,6 +36,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
+                updateChainId(chainId: number): void;
                 getQueryResult(target: string, func: string, args: any[]): any;
                 queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;
@@ -41,6 +45,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
             }, previousSelectedState: {
                 iface: ethers.utils.Interface;
                 provider: ethers.providers.Provider;
+                chainId: undefined;
                 cachedResults: {};
                 queuedCalls: {};
                 dispatchedCalls: {};
@@ -49,6 +54,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
+                updateChainId(chainId: number): void;
                 getQueryResult(target: string, func: string, args: any[]): any;
                 queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;
@@ -58,6 +64,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
             <U>(selector: (state: {
                 iface: ethers.utils.Interface;
                 provider: ethers.providers.Provider;
+                chainId: undefined;
                 cachedResults: {};
                 queuedCalls: {};
                 dispatchedCalls: {};
@@ -66,6 +73,7 @@ export declare const createChainQuery: (iface: ethers.utils.Interface, provider:
                 queueTimeout: undefined;
                 updateInterface(iface: ethers.utils.Interface): void;
                 updateProvider(provider: ethers.providers.Provider): void;
+                updateChainId(chainId: number): void;
                 getQueryResult(target: string, func: string, args: any[]): any;
                 queueCall(target: string, func: string, args: any[]): void;
                 runQueueDispatchCheck(): void;

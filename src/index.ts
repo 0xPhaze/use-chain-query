@@ -20,7 +20,7 @@ export const getCallKey = (target: string, func: string, args: any[] = [], chain
   args.some((arg) => arg == undefined) ||
   (func?.split("(")[1]?.split(")")[0]?.length && args.length == 0)
     ? undefined
-    : `${chainId}::${target}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
+    : `${chainId}::${target?.toLowerCase?.()}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
 
 export const buildCall = (target: string, func: string, args: any[], argsList?: any[][], chainId = 1) => {
   return Object.assign(
@@ -47,6 +47,7 @@ export const createChainQuery = (
     subscribeWithSelector((set: Function, get: Function) => ({
       iface,
       provider,
+      chainId: undefined,
       cachedResults: {},
       queuedCalls: {},
       dispatchedCalls: {},
@@ -67,6 +68,10 @@ export const createChainQuery = (
           get().runQueueDispatchCheck();
         }
       },
+      updateChainId(chainId: number) {
+        if (verbosity > 0) console.log("CQ: Updating chainId", chainId);
+        get().chainId = chainId;
+      },
       getQueryResult(target: string, func: string, args: any[]): any {
         const key = getCallKey(target, func, args);
 
@@ -81,7 +86,8 @@ export const createChainQuery = (
         if (key !== undefined) get().queueCall(target, func, args);
       },
       queueCall(target: string, func: string, args: any[]) {
-        const key = getCallKey(target, func, args);
+        const chainId = get().chainId;
+        const key = getCallKey(target, func, args, chainId);
 
         if (
           key !== undefined && // key is valid (all args defined)
@@ -92,7 +98,7 @@ export const createChainQuery = (
 
           get().queuedCalls = {
             ...get().queuedCalls,
-            ...buildCall(target, func, args),
+            ...buildCall(target, func, args, chainId),
           };
 
           get().runQueueDispatchCheck();
@@ -223,16 +229,22 @@ export async function multiCall(
     console.log("CQ: ERROR: Multicall reverted on calls", calls);
     throw e;
   }
-  const [returnData] = ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
-  const results = returnData.map((data: string, i: number) => {
-    if (!strict && data === "0x") return undefined;
-    try {
-      const result = iface.decodeFunctionResult(calls[i].func, data);
-      return Array.isArray(result) && result.length == 1 ? result[0] : result;
-    } catch (e) {
-      console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
-      throw e;
-    }
-  });
-  return results;
+  try {
+    const [returnData] = ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
+    const results = returnData.map((data: string, i: number) => {
+      if (!strict && data === "0x") return undefined;
+      try {
+        const result = iface.decodeFunctionResult(calls[i].func, data);
+        return Array.isArray(result) && result.length == 1 ? result[0] : result;
+      } catch (e) {
+        console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+        throw e;
+      }
+    });
+
+    return results;
+  } catch (e) {
+    console.log("CQ: ERROR: Failed decoding returndata", encodedReturnData, "with calls", calls);
+    throw e;
+  }
 }

@@ -10,7 +10,7 @@ import ERC721ABI from "../data/ERC721ABI.json";
 import { useEffect } from "react";
 
 const allowedChainIds = [1];
-const [metamask, { useProvider, useAccount }] = initializeConnector(
+const [metamask, { useProvider, useAccount, useChainId }] = initializeConnector(
   (actions) => new MetaMask(actions, false),
   allowedChainIds
 );
@@ -49,6 +49,7 @@ function Home() {
 
 function InjectProvider() {
   const provider = useProvider();
+  const chainId = useChainId();
 
   /// @notice using this hook would use provider injected into window
   /// by MetaMask or other wallets (after access has been granted)
@@ -65,6 +66,10 @@ function InjectProvider() {
   useEffect(() => {
     useChainQuery.useStore.getState().updateProvider(provider);
   }, [provider]);
+
+  useEffect(() => {
+    useChainQuery.useStore.getState().updateChainId(chainId);
+  }, [chainId]);
 
   return null;
 }

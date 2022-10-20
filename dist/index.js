@@ -14,13 +14,13 @@ const fragmentSignature = ({ inputs, name, type }) => name +
 const abiConcat = (arr) => Object.values(Object.assign({}, ...[].concat(...arr).map((fragment) => ({ [fragmentSignature(fragment)]: fragment }))));
 exports.abiConcat = abiConcat;
 const getCallKey = (target, func, args = [], chainId = 1) => {
-    var _a, _b;
+    var _a, _b, _c;
     return target == undefined ||
         func == undefined ||
         args.some((arg) => arg == undefined) ||
         (((_b = (_a = func === null || func === void 0 ? void 0 : func.split("(")[1]) === null || _a === void 0 ? void 0 : _a.split(")")[0]) === null || _b === void 0 ? void 0 : _b.length) && args.length == 0)
         ? undefined
-        : `${chainId}::${target}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
+        : `${chainId}::${(_c = target === null || target === void 0 ? void 0 : target.toLowerCase) === null || _c === void 0 ? void 0 : _c.call(target)}::${func}` + (func.endsWith("()") ? "" : `(${args})`);
 };
 exports.getCallKey = getCallKey;
 const buildCall = (target, func, args, argsList, chainId = 1) => {
@@ -37,6 +37,7 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
     const useChainQueryStore = (0, zustand_1.default)((0, middleware_1.subscribeWithSelector)((set, get) => ({
         iface,
         provider,
+        chainId: undefined,
         cachedResults: {},
         queuedCalls: {},
         dispatchedCalls: {},
@@ -59,6 +60,11 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
                 get().runQueueDispatchCheck();
             }
         },
+        updateChainId(chainId) {
+            if (verbosity > 0)
+                console.log("CQ: Updating chainId", chainId);
+            get().chainId = chainId;
+        },
         getQueryResult(target, func, args) {
             const key = (0, exports.getCallKey)(target, func, args);
             const val = get().cachedResults[key];
@@ -73,7 +79,8 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
                 get().queueCall(target, func, args);
         },
         queueCall(target, func, args) {
-            const key = (0, exports.getCallKey)(target, func, args);
+            const chainId = get().chainId;
+            const key = (0, exports.getCallKey)(target, func, args, chainId);
             if (key !== undefined && // key is valid (all args defined)
                 !(key in get().queuedCalls) && // not already aggregated
                 !(key in get().dispatchedCalls) // not waiting for call result
@@ -82,7 +89,7 @@ const createChainQuery = (iface, provider, maxCallQueue = 20, queueCallDelay = 1
                     console.log("CQ: Aggregating", key);
                 get().queuedCalls = {
                     ...get().queuedCalls,
-                    ...(0, exports.buildCall)(target, func, args),
+                    ...(0, exports.buildCall)(target, func, args, chainId),
                 };
                 get().runQueueDispatchCheck();
             }
@@ -192,19 +199,25 @@ async function multiCall(provider, iface, calls, strict) {
         console.log("CQ: ERROR: Multicall reverted on calls", calls);
         throw e;
     }
-    const [returnData] = ethers_1.ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
-    const results = returnData.map((data, i) => {
-        if (!strict && data === "0x")
-            return undefined;
-        try {
-            const result = iface.decodeFunctionResult(calls[i].func, data);
-            return Array.isArray(result) && result.length == 1 ? result[0] : result;
-        }
-        catch (e) {
-            console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
-            throw e;
-        }
-    });
-    return results;
+    try {
+        const [returnData] = ethers_1.ethers.utils.defaultAbiCoder.decode(["bytes[]"], encodedReturnData);
+        const results = returnData.map((data, i) => {
+            if (!strict && data === "0x")
+                return undefined;
+            try {
+                const result = iface.decodeFunctionResult(calls[i].func, data);
+                return Array.isArray(result) && result.length == 1 ? result[0] : result;
+            }
+            catch (e) {
+                console.log("CQ: ERROR: Failed decoding result from call", calls[i], "with data", data);
+                throw e;
+            }
+        });
+        return results;
+    }
+    catch (e) {
+        console.log("CQ: ERROR: Failed decoding returndata", encodedReturnData, "with calls", calls);
+        throw e;
+    }
 }
 exports.multiCall = multiCall;
